@@ -1,0 +1,111 @@
+<div id="loremaster_settings" class="loremaster-settings inline-drawer">
+    <div class="inline-drawer-toggle inline-drawer-header">
+        <b>Loremaster</b>
+        <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+    </div>
+    <div class="inline-drawer-content" style="display: none;">
+        <div class="lm-settings-hero">
+            <div>
+                <div class="lm-settings-eyebrow">Dynamic lore generation</div>
+                <h3>Loremaster</h3>
+                <p>Dynamically generate lore entries for ongoing roleplays.</p>
+            </div>
+        </div>
+
+        <div class="lm-settings-grid">
+            <section class="lm-settings-card lm-settings-connection-card">
+                <div class="lm-settings-section-title">
+                    <div>
+                        <h4>Connection &amp; Prompt</h4>
+                        <p>Pick a connection profile, override its preset, and tune the prompt context.</p>
+                    </div>
+                </div>
+
+                <div class="lm-settings-row lm-settings-wrap">
+                    <label class="lm-settings-field lm-settings-grow" for="lm_connection_profile">
+                        <span>Connection profile</span>
+                        <select id="lm_connection_profile"></select>
+                    </label>
+
+                    <label class="lm-settings-field lm-settings-grow" for="lm_preset_override">
+                        <span>Preset override</span>
+                        <select id="lm_preset_override"></select>
+                    </label>
+                </div>
+
+                <div class="lm-settings-row lm-settings-wrap">
+                    <label class="lm-settings-field" for="lm_context_message_count">
+                        <span>Prompt to include last N messages:</span>
+                        <input id="lm_context_message_count" type="number" min="1" step="1" />
+                    </label>
+                </div>
+            </section>
+
+            <section class="lm-settings-card lm-settings-insertion-card">
+                <div class="lm-settings-section-title">
+                    <div>
+                        <h4>Lorebook</h4>
+                        <p>Lorebook customization, and choose where new World Info entries are inserted.</p>
+                    </div>
+                </div>
+
+                <label class="lm-settings-field" for="lm_insertion_depth">
+                    <span>Insertion depth</span>
+                    <select id="lm_insertion_depth">
+                        <option value="0" title="World Info entry is inserted before the character's description and scenario. Has a moderate impact on the conversation.">Before Char Defs</option>
+                        <option value="1" title="World Info entry is inserted after the character's description and scenario. Has a greater impact on the conversation.">After Char Defs</option>
+                        <option value="5" title="The World Info entry is parsed as an example dialogue block and inserted before the examples provided by the character card.">Before Example Messages</option>
+                        <option value="6" title="The World Info entry is parsed as an example dialogue block and inserted after the examples provided by the character card.">After Example Messages</option>
+                        <option value="2" title="World Info entry is inserted at the top of Author's Note content. Has a variable impact depending on the Author's Note position.">Top of AN</option>
+                        <option value="3" title="World Info entry is inserted at the bottom of Author's Note content. Has a variable impact depending on the Author's Note position.">Bottom of AN</option>
+                        <option value="4" title="World Info entry is inserted at a specific depth in the chat (Depth 0 being the bottom of the prompt).">@ Depth</option>
+                    </select>
+                </label>
+
+                <label class="lm-settings-field" for="lm_lorebook_prefix">
+                    <span>Lorebook name prefix</span>
+                    <input id="lm_lorebook_prefix" type="text" />
+                </label>
+
+                <div class="lm-settings-row lm-settings-wrap" id="lm_insertion_chat_depth_row">
+                    <label class="lm-settings-field" for="lm_insertion_chat_depth">
+                        <span>Exact depth</span>
+                        <input id="lm_insertion_chat_depth" type="number" min="0" step="1" />
+                    </label>
+                </div>
+            </section>
+
+            <section class="lm-settings-card lm-settings-prompts-card">
+                <div class="lm-settings-section-title">
+                    <div>
+                        <h4>Prompts</h4>
+                        <p>Edit the character and lore generation prompts used by Loremaster.</p>
+                    </div>
+                </div>
+
+                <label class="lm-settings-field" for="lm_character_prompt">
+                    <span>Character generation prompt</span>
+                    <textarea id="lm_character_prompt" rows="9"></textarea>
+                </label>
+
+                <label class="lm-settings-field" for="lm_lore_prompt">
+                    <span>Lore generation prompt</span>
+                    <textarea id="lm_lore_prompt" rows="9"></textarea>
+                </label>
+            </section>
+
+            <section class="lm-settings-card lm-settings-defaults-card">
+                <div class="lm-settings-section-title">
+                    <div>
+                        <h4>Defaults</h4>
+                        <p>Restore Loremaster's settings and prompts to their built-in defaults.</p>
+                    </div>
+                </div>
+
+                <div class="lm-settings-row lm-settings-wrap">
+                    <button id="lm_restore_defaults" type="button">Revert to default settings</button>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
