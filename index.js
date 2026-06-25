@@ -26,9 +26,9 @@ Create a character profile for the character in the highlighted text (provided b
 "[Dialogue example 1]" ([context])
 "[Dialogue example 2]" ([context])
 "[Dialogue example 3]" ([context])
-**Sexual Experience**: [Sexuality, history, experiences, kinks if relevant, cup size if female (**mandatory!**)] "[Quote reflecting their thoughts]"
+**Sexual Experience**: [Sexuality, history, experiences, kinks if relevant] "[Quote reflecting their thoughts]"
 **Marital Status/Family Plans**: [Relationship status, spouse/partner if any, whether they want children] "[Quote reflecting their thoughts]"
-**Appearance**: [Physical appearance] "[Quote reflecting their thoughts]"
+**Appearance**: [Physical appearance, cup size if female (**mandatory!**)] "[Quote reflecting their thoughts]"
 **Typical Clothing**: [Usual style and outfits] "[Quote reflecting their thoughts]"
 **Activities**: [Daily routines, work, hobbies, leisure] "[Quote reflecting their thoughts]"
 **Relationships**: [Important relationships and dynamics] "[Quote reflecting their thoughts]"
@@ -411,7 +411,6 @@ async function sendSidecarRequest(profile, messages) {
     const apiFamily = getProfileApiFamily(profile);
     const settings = getSettings();
     const presetOverride = settings.presetOverride?.trim();
-    const maxTokens = 1024;
     const runtimeContext = getContext();
 
     if (!apiFamily) {
@@ -427,7 +426,6 @@ async function sendSidecarRequest(profile, messages) {
         return await runtimeContext.ChatCompletionService.processRequest({
             stream: false,
             messages,
-            max_tokens: maxTokens,
             model: profile.model,
             chat_completion_source: runtimeContext.CONNECT_API_MAP[profile.api].source,
             secret_id: profile['secret-id'],
@@ -448,7 +446,6 @@ async function sendSidecarRequest(profile, messages) {
     return await runtimeContext.TextCompletionService.processRequest({
         stream: false,
         prompt: messages,
-        max_tokens: maxTokens,
         model: profile.model,
         api_type: runtimeContext.CONNECT_API_MAP[profile.api].type,
         api_server: profile['api-url'],
