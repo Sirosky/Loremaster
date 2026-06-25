@@ -137,9 +137,98 @@
     resize: vertical;
 }
 
-.loremaster-settings textarea#lm_character_prompt,
-.loremaster-settings textarea#lm_lore_prompt {
-    min-height: 180px;
+.lm-prompt-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.lm-prompt-selector {
+    flex: 1;
+    min-width: 0;
+}
+
+.lm-prompt-btn {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    background-color: var(--black30a, rgb(0 0 0 / 30%));
+    color: var(--SmartThemeBodyColor);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.lm-prompt-btn:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--lm-settings-accent-2) 70%, var(--SmartThemeBorderColor));
+    background-color: color-mix(in srgb, var(--lm-settings-accent-2) 15%, transparent);
+}
+
+.lm-prompt-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.lm-prompt-btn-danger:hover:not(:disabled) {
+    border-color: var(--lm-settings-danger);
+    background-color: color-mix(in srgb, var(--lm-settings-danger) 15%, transparent);
+    color: var(--lm-settings-danger);
+}
+
+.lm-prompt-icon-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.lm-prompt-icon-field label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.lm-prompt-icon-field span {
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.96;
+    font-size: 0.86em;
+    font-weight: 650;
+}
+
+.lm-icon-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.lm-icon-preset {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    background-color: var(--black30a, rgb(0 0 0 / 30%));
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.lm-icon-preset:hover {
+    border-color: color-mix(in srgb, var(--lm-settings-accent-2) 70%, var(--SmartThemeBorderColor));
+    background-color: color-mix(in srgb, var(--lm-settings-accent-2) 15%, transparent);
+    transform: scale(1.1);
+}
+
+.loremaster-settings textarea#lm_prompt_text {
+    min-height: 240px;
 }
 
 .loremaster-settings select:focus,

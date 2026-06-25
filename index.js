@@ -67,7 +67,7 @@ Use the following example only as a model for formatting, field order, cadence, 
 - Keep the result vivid and concise.
 - Do not copy the example's subject matter, quotes, or traits.
 
-Return only the completed profile.
+Write only the completed profile content for the entry section.
 `;
 
 const DEFAULT_LORE_PROMPT = `# Task
@@ -94,8 +94,36 @@ Lake Osceola is the scenic, man-made freshwater centerpiece of the University of
 - Use comma lists in parentheticals to compress details cleanly.
 - Keep the result vivid and concise.
 
-Return only the completed lorebook entry.
+Write only the completed lorebook entry content for the entry section.
 `;
+
+const DEFAULT_NEW_PROMPT_TEMPLATE = `# Task
+Write a lorebook entry for the subject in the highlighted text.
+
+# Guidelines
+- Base the entry strictly on information available in the provided context.
+- Keep the result vivid and concise.
+
+Write only the completed lorebook entry content for the entry section.`;
+
+const ICON_PRESETS = ['👤', '📖', '⚔️', '🏰', '🌍', '🧙', '🐉', '💀', '👑', '🗡️', '🛡️', '🔮', '🌟', '📜', '🎭'];
+
+const DEFAULT_PROMPTS = [
+    {
+        id: 'character',
+        name: 'Character',
+        icon: '👤',
+        prompt: DEFAULT_CHARACTER_PROMPT,
+        isDefault: true,
+    },
+    {
+        id: 'lore',
+        name: 'Lore',
+        icon: '📖',
+        prompt: DEFAULT_LORE_PROMPT,
+        isDefault: true,
+    },
+];
 
 const DEFAULT_SETTINGS = {
     selectedProfileId: '',
@@ -104,8 +132,8 @@ const DEFAULT_SETTINGS = {
     insertionDepth: world_info_position.before,
     insertionChatDepth: DEFAULT_DEPTH,
     lorebookPrefix: 'zzzLM - ',
-    characterPrompt: DEFAULT_CHARACTER_PROMPT,
-    lorePrompt: DEFAULT_LORE_PROMPT,
+    prompts: DEFAULT_PROMPTS,
+    selectedPromptId: 'character',
 };
 
 const selectionState = {
@@ -134,21 +162,56 @@ function getSettings() {
         extension_settings[EXTENSION_NAME] = structuredClone(DEFAULT_SETTINGS);
     }
 
-    if (extension_settings[EXTENSION_NAME].insertionDepth === undefined && extension_settings[EXTENSION_NAME].entryPlacement !== undefined) {
-        extension_settings[EXTENSION_NAME].insertionDepth = extension_settings[EXTENSION_NAME].entryPlacement;
+    const settings = extension_settings[EXTENSION_NAME];
+
+    // Migrate legacy prompt format to new prompts array
+    if (!settings.prompts && (settings.characterPrompt || settings.lorePrompt)) {
+        settings.prompts = [
+            {
+                id: 'character',
+                name: 'Character',
+                icon: '👤',
+                prompt: settings.characterPrompt || DEFAULT_CHARACTER_PROMPT,
+                isDefault: true,
+            },
+            {
+                id: 'lore',
+                name: 'Lore',
+                icon: '📖',
+                prompt: settings.lorePrompt || DEFAULT_LORE_PROMPT,
+                isDefault: true,
+            },
+        ];
+        delete settings.characterPrompt;
+        delete settings.lorePrompt;
+        saveSettings();
     }
 
-    if (extension_settings[EXTENSION_NAME].insertionChatDepth === undefined && extension_settings[EXTENSION_NAME].entryDepth !== undefined) {
-        extension_settings[EXTENSION_NAME].insertionChatDepth = extension_settings[EXTENSION_NAME].entryDepth;
+    // Ensure prompts array exists
+    if (!settings.prompts || !Array.isArray(settings.prompts)) {
+        settings.prompts = structuredClone(DEFAULT_PROMPTS);
+    }
+
+    // Ensure selectedPromptId exists and is valid
+    if (!settings.selectedPromptId || !settings.prompts.some(p => p.id === settings.selectedPromptId)) {
+        settings.selectedPromptId = settings.prompts[0]?.id || 'character';
+    }
+
+    if (settings.insertionDepth === undefined && settings.entryPlacement !== undefined) {
+        settings.insertionDepth = settings.entryPlacement;
+    }
+
+    if (settings.insertionChatDepth === undefined && settings.entryDepth !== undefined) {
+        settings.insertionChatDepth = settings.entryDepth;
     }
 
     for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
-        if (extension_settings[EXTENSION_NAME][key] === undefined) {
-            extension_settings[EXTENSION_NAME][key] = structuredClone(value);
+        if (settings[key] === undefined) {
+            settings[key] = structuredClone(value);
         }
     }
 
-    return extension_settings[EXTENSION_NAME];
+    return settings;
 }
 
 function saveSettings() {
@@ -317,20 +380,27 @@ function buildContextMessages(messageIndex, selectionText) {
     ].join('\n');
 }
 
-function buildRequestMessages(type, selection) {
+function buildRequestMessages(promptId, selection) {
     const settings = getSettings();
-    const systemPrompt = type === 'character' ? settings.characterPrompt : settings.lorePrompt;
-    const instruction = type === 'character'
-        ? [
-            'Fill the template completely based on the target and context above.',
-            'End your response with a line that starts with "Keywords:" followed by comma-separated trigger keywords.',
-            'Include the target text verbatim as one of the keywords.',
-        ]
-        : [
-            'Write the lorebook entry based on the target and context above.',
-            'End your response with a line that starts with "Keywords:" followed by comma-separated trigger keywords.',
-            'Include the target text verbatim as one of the keywords.',
-        ];
+    const prompt = settings.prompts.find(p => p.id === promptId);
+    
+    if (!prompt) {
+        throw new Error(`Prompt with ID "${promptId}" not found.`);
+    }
+
+    const systemPrompt = prompt.prompt;
+    const instruction = [
+        'Complete the selected prompt\'s primary task using the Target and provided context above.',
+        'Return exactly two XML-style sections and no other text:',
+        '<entry>',
+        'Write only the completed lorebook entry requested by the selected prompt here. Do not include keywords or metadata.',
+        '</entry>',
+        '<keywords>',
+        'Highlighted target text; short alias; another trigger phrase',
+        '</keywords>',
+        'Rules for <keywords>: include the highlighted target text exactly as the first keyword; use 3-8 concise search trigger keywords or phrases; separate them with semicolons.',
+        'The keywords are metadata for lorebook triggers, not part of the entry content.',
+    ];
 
     return [
         { role: 'system', content: systemPrompt },
@@ -363,7 +433,22 @@ function extractResponseText(response) {
 }
 
 function parseResponse(content) {
-    const lines = normalizeText(content).split('\n');
+    const normalizedContent = normalizeText(content);
+    const entryMatch = normalizedContent.match(/<entry>\s*([\s\S]*?)\s*<\/entry>/i);
+    const keywordsMatch = normalizedContent.match(/<keywords>\s*([\s\S]*?)\s*<\/keywords>/i);
+
+    if (entryMatch || keywordsMatch) {
+        const entryContent = entryMatch
+            ? entryMatch[1].trim()
+            : normalizedContent.replace(/<keywords>\s*[\s\S]*?\s*<\/keywords>/i, '').trim();
+
+        return {
+            content: entryContent,
+            keywords: keywordsMatch ? splitKeywords(keywordsMatch[1]) : [],
+        };
+    }
+
+    const lines = normalizedContent.split('\n');
     const keywordLineIndexes = [];
 
     for (let index = 0; index < lines.length; index++) {
@@ -457,13 +542,20 @@ async function sendSidecarRequest(profile, messages) {
     }, true, null);
 }
 
-async function createLoreEntry(type, selection) {
+async function createLoreEntry(promptId, selection) {
+    const settings = getSettings();
+    const prompt = settings.prompts.find(p => p.id === promptId);
+    
+    if (!prompt) {
+        throw new Error(`Prompt with ID "${promptId}" not found.`);
+    }
+
     const profile = getSelectedProfile();
     if (!profile) {
         throw new Error('Choose a supported connection profile first.');
     }
 
-    const messages = buildRequestMessages(type, selection);
+    const messages = buildRequestMessages(promptId, selection);
     toastr.info('Request sent.', 'Loremaster', { timeOut: 1500 });
 
     const response = await sendSidecarRequest(profile, messages);
@@ -490,7 +582,6 @@ async function createLoreEntry(type, selection) {
     }
 
     const selectionLabel = selection.text.length > 80 ? `${selection.text.slice(0, 77)}...` : selection.text;
-    const settings = getSettings();
     const placement = Number(settings.insertionDepth);
     const entryPlacement = [
         world_info_position.before,
@@ -508,14 +599,14 @@ async function createLoreEntry(type, selection) {
     Object.assign(entry, {
         key: Array.from(new Set(keywords)),
         keysecondary: [],
-        comment: `${type === 'character' ? '[CHAR]' : '[LORE]'} ${selectionLabel}`.slice(0, 100),
+        comment: `[${prompt.name}] ${selectionLabel}`.slice(0, 100),
         content,
         position: entryPlacement,
         depth: entryPlacement === world_info_position.atDepth ? entryDepth : DEFAULT_DEPTH,
     });
 
     await saveWorldInfo(bookName, data, true);
-    toastr.success(`Created ${type} entry in ${bookName}.`, 'Loremaster', { timeOut: 2000 });
+    toastr.success(`Created ${prompt.name} entry in ${bookName}.`, 'Loremaster', { timeOut: 2000 });
 }
 
 function getSelectionData() {
@@ -560,15 +651,34 @@ function getToolbar() {
     toolbar = document.createElement('div');
     toolbar.id = 'lm_selection_toolbar';
     toolbar.className = 'lm-selection-toolbar';
-    toolbar.innerHTML = `
-        <span class="lm-toolbar-label">🪄</span>
-        <button type="button" data-action="character" aria-label="Generate character lore" title="Character">
-            <i class="fa-solid fa-user"></i>
-        </button>
-        <button type="button" data-action="lore" aria-label="Generate lore entry" title="Lore">
-            <i class="fa-solid fa-book-open"></i>
-        </button>
-    `;
+    
+    // Build toolbar dynamically from prompts
+    const settings = getSettings();
+    const label = document.createElement('span');
+    label.className = 'lm-toolbar-label';
+    label.textContent = '🪄';
+    toolbar.appendChild(label);
+
+    for (const prompt of settings.prompts) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.action = prompt.id;
+        button.setAttribute('aria-label', `Generate ${prompt.name}`);
+        button.title = prompt.name;
+
+        // Render icon: either emoji or FontAwesome
+        if (isEmojiIcon(prompt.icon)) {
+            button.textContent = prompt.icon;
+            button.style.fontSize = '18px';
+        } else {
+            const icon = document.createElement('i');
+            icon.className = prompt.icon;
+            button.appendChild(icon);
+        }
+
+        toolbar.appendChild(button);
+    }
+
     document.body.appendChild(toolbar);
 
     toolbar.addEventListener('click', async (event) => {
@@ -577,7 +687,7 @@ function getToolbar() {
             return;
         }
 
-        const action = button.dataset.action;
+        const promptId = button.dataset.action;
         const selection = selectionState.active;
         if (!selection) {
             return;
@@ -588,7 +698,7 @@ function getToolbar() {
 
         try {
             hideToolbar();
-            await createLoreEntry(action, selection);
+            await createLoreEntry(promptId, selection);
         } catch (error) {
             console.error('[Loremaster] Failed to create entry:', error);
             toastr.error(error?.message || 'Failed to create Loremaster entry.', 'Loremaster');
@@ -657,6 +767,162 @@ function updateSelectionToolbar() {
     positionToolbar(selection);
 }
 
+function generatePromptId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function isEmojiIcon(str) {
+    // Check if it's a single emoji or starts with fa- (FontAwesome class)
+    if (!str || typeof str !== 'string') return false;
+    const trimmed = str.trim();
+    if (trimmed.startsWith('fa-')) return false;
+    // Simple emoji detection: if it's short and not starting with 'fa-', treat as emoji
+    return trimmed.length <= 4;
+}
+
+function renderIconPresets() {
+    const container = document.getElementById('lm_icon_presets');
+    if (!container) return;
+
+    container.innerHTML = '';
+    for (const icon of ICON_PRESETS) {
+        const span = document.createElement('span');
+        span.className = 'lm-icon-preset';
+        span.textContent = icon;
+        span.title = `Use ${icon}`;
+        span.addEventListener('click', () => {
+            const iconInput = document.getElementById('lm_prompt_icon');
+            if (iconInput) {
+                iconInput.value = icon;
+                iconInput.dispatchEvent(new Event('input'));
+            }
+        });
+        container.appendChild(span);
+    }
+}
+
+function refreshToolbar() {
+    const toolbar = document.getElementById('lm_selection_toolbar');
+    if (toolbar) {
+        toolbar.remove();
+    }
+    // Toolbar will be recreated on next selection
+}
+
+function renderPromptSelector() {
+    const settings = getSettings();
+    const selector = document.getElementById('lm_prompt_selector');
+    if (!selector) return;
+
+    selector.innerHTML = '';
+    for (const prompt of settings.prompts) {
+        const option = document.createElement('option');
+        option.value = prompt.id;
+        option.textContent = `${prompt.icon} ${prompt.name}`;
+        selector.appendChild(option);
+    }
+
+    selector.value = settings.selectedPromptId;
+    updatePromptUI();
+}
+
+function updatePromptUI() {
+    const settings = getSettings();
+    const selectedPrompt = settings.prompts.find(p => p.id === settings.selectedPromptId);
+    if (!selectedPrompt) return;
+
+    const iconInput = document.getElementById('lm_prompt_icon');
+    const textArea = document.getElementById('lm_prompt_text');
+    const deleteButton = document.getElementById('lm_prompt_delete');
+    const renameButton = document.getElementById('lm_prompt_rename');
+    const moveUpButton = document.getElementById('lm_prompt_move_up');
+    const moveDownButton = document.getElementById('lm_prompt_move_down');
+
+    if (iconInput) iconInput.value = selectedPrompt.icon;
+    if (textArea) textArea.value = selectedPrompt.prompt;
+
+    // Disable delete/rename for default prompts
+    if (deleteButton) deleteButton.disabled = selectedPrompt.isDefault;
+    if (renameButton) renameButton.disabled = selectedPrompt.isDefault;
+
+    // Update move buttons based on position
+    const currentIndex = settings.prompts.findIndex(p => p.id === settings.selectedPromptId);
+    if (moveUpButton) moveUpButton.disabled = currentIndex === 0;
+    if (moveDownButton) moveDownButton.disabled = currentIndex === settings.prompts.length - 1;
+}
+
+function selectPrompt(promptId) {
+    const settings = getSettings();
+    settings.selectedPromptId = promptId;
+    saveSettings();
+    updatePromptUI();
+}
+
+function addPrompt() {
+    const settings = getSettings();
+    const newPrompt = {
+        id: generatePromptId(),
+        name: 'New Prompt',
+        icon: '📝',
+        prompt: DEFAULT_NEW_PROMPT_TEMPLATE,
+        isDefault: false,
+    };
+    settings.prompts.push(newPrompt);
+    settings.selectedPromptId = newPrompt.id;
+    saveSettings();
+    renderPromptSelector();
+    refreshToolbar();
+}
+
+function deletePrompt(promptId) {
+    const settings = getSettings();
+    const prompt = settings.prompts.find(p => p.id === promptId);
+    if (!prompt || prompt.isDefault) return;
+
+    if (!confirm(`Delete prompt "${prompt.name}"?`)) return;
+
+    const index = settings.prompts.findIndex(p => p.id === promptId);
+    settings.prompts.splice(index, 1);
+
+    // Select the previous prompt, or the first one if we deleted the first
+    if (settings.selectedPromptId === promptId) {
+        settings.selectedPromptId = settings.prompts[Math.max(0, index - 1)]?.id || settings.prompts[0]?.id;
+    }
+
+    saveSettings();
+    renderPromptSelector();
+    refreshToolbar();
+}
+
+function renamePrompt(promptId) {
+    const settings = getSettings();
+    const prompt = settings.prompts.find(p => p.id === promptId);
+    if (!prompt || prompt.isDefault) return;
+
+    const newName = window.prompt('Enter new prompt name:', prompt.name);
+    if (!newName || newName.trim() === '') return;
+
+    prompt.name = newName.trim();
+    saveSettings();
+    renderPromptSelector();
+    refreshToolbar();
+}
+
+function movePrompt(promptId, direction) {
+    const settings = getSettings();
+    const index = settings.prompts.findIndex(p => p.id === promptId);
+    if (index === -1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= settings.prompts.length) return;
+
+    // Swap
+    [settings.prompts[index], settings.prompts[newIndex]] = [settings.prompts[newIndex], settings.prompts[index]];
+    saveSettings();
+    renderPromptSelector();
+    refreshToolbar();
+}
+
 async function populateSettings() {
     const settings = getSettings();
     const profileSelect = document.getElementById('lm_connection_profile');
@@ -666,9 +932,17 @@ async function populateSettings() {
     const insertionChatDepthInput = document.getElementById('lm_insertion_chat_depth');
     const insertionChatDepthRow = document.getElementById('lm_insertion_chat_depth_row');
     const lorebookPrefixInput = document.getElementById('lm_lorebook_prefix');
-    const characterPrompt = document.getElementById('lm_character_prompt');
-    const lorePrompt = document.getElementById('lm_lore_prompt');
     const restoreDefaultsButton = document.getElementById('lm_restore_defaults');
+    
+    // Prompt management UI elements
+    const promptSelector = document.getElementById('lm_prompt_selector');
+    const promptAddButton = document.getElementById('lm_prompt_add');
+    const promptRenameButton = document.getElementById('lm_prompt_rename');
+    const promptDeleteButton = document.getElementById('lm_prompt_delete');
+    const promptMoveUpButton = document.getElementById('lm_prompt_move_up');
+    const promptMoveDownButton = document.getElementById('lm_prompt_move_down');
+    const promptIconInput = document.getElementById('lm_prompt_icon');
+    const promptTextArea = document.getElementById('lm_prompt_text');
 
     const syncInsertionDepthVisibility = () => {
         if (!insertionChatDepthRow || !insertionDepthInput) {
@@ -727,17 +1001,62 @@ async function populateSettings() {
             });
         }
 
-        if (characterPrompt) {
-            characterPrompt.addEventListener('change', () => {
-                settings.characterPrompt = characterPrompt.value;
-                saveSettings();
+        // Prompt management listeners
+        if (promptSelector) {
+            promptSelector.addEventListener('change', () => {
+                selectPrompt(promptSelector.value);
             });
         }
 
-        if (lorePrompt) {
-            lorePrompt.addEventListener('change', () => {
-                settings.lorePrompt = lorePrompt.value;
-                saveSettings();
+        if (promptAddButton) {
+            promptAddButton.addEventListener('click', () => {
+                addPrompt();
+            });
+        }
+
+        if (promptRenameButton) {
+            promptRenameButton.addEventListener('click', () => {
+                renamePrompt(settings.selectedPromptId);
+            });
+        }
+
+        if (promptDeleteButton) {
+            promptDeleteButton.addEventListener('click', () => {
+                deletePrompt(settings.selectedPromptId);
+            });
+        }
+
+        if (promptMoveUpButton) {
+            promptMoveUpButton.addEventListener('click', () => {
+                movePrompt(settings.selectedPromptId, 'up');
+            });
+        }
+
+        if (promptMoveDownButton) {
+            promptMoveDownButton.addEventListener('click', () => {
+                movePrompt(settings.selectedPromptId, 'down');
+            });
+        }
+
+        if (promptIconInput) {
+            promptIconInput.addEventListener('input', () => {
+                const prompt = settings.prompts.find(p => p.id === settings.selectedPromptId);
+                if (prompt) {
+                    prompt.icon = promptIconInput.value;
+                    saveSettings();
+                    renderPromptSelector();
+                    refreshToolbar();
+                }
+            });
+        }
+
+        if (promptTextArea) {
+            promptTextArea.addEventListener('change', () => {
+                const prompt = settings.prompts.find(p => p.id === settings.selectedPromptId);
+                if (prompt) {
+                    prompt.prompt = promptTextArea.value;
+                    saveSettings();
+                }
             });
         }
 
@@ -770,13 +1089,9 @@ async function populateSettings() {
         lorebookPrefixInput.value = settings.lorebookPrefix ?? '';
     }
 
-    if (characterPrompt) {
-        characterPrompt.value = settings.characterPrompt;
-    }
-
-    if (lorePrompt) {
-        lorePrompt.value = settings.lorePrompt;
-    }
+    // Render prompt UI
+    renderIconPresets();
+    renderPromptSelector();
 
     renderProfileSelect();
     renderPresetSelect();

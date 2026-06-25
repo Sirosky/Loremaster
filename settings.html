@@ -79,18 +79,40 @@
                 <div class="lm-settings-section-title">
                     <div>
                         <h4>Prompts</h4>
-                        <p>Edit the character and lore generation prompts used by Loremaster.</p>
+                        <p>Create and manage generation prompts. Each prompt appears as a button in the highlight menu.</p>
                     </div>
                 </div>
 
-                <label class="lm-settings-field" for="lm_character_prompt">
-                    <span>Character generation prompt</span>
-                    <textarea id="lm_character_prompt" rows="9"></textarea>
-                </label>
+                <div class="lm-prompt-toolbar">
+                    <select id="lm_prompt_selector" class="lm-prompt-selector"></select>
+                    <button id="lm_prompt_add" type="button" class="lm-prompt-btn" title="Add new prompt">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <button id="lm_prompt_rename" type="button" class="lm-prompt-btn" title="Rename prompt">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button id="lm_prompt_delete" type="button" class="lm-prompt-btn lm-prompt-btn-danger" title="Delete prompt">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                    <button id="lm_prompt_move_up" type="button" class="lm-prompt-btn" title="Move up">
+                        <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                    <button id="lm_prompt_move_down" type="button" class="lm-prompt-btn" title="Move down">
+                        <i class="fa-solid fa-arrow-down"></i>
+                    </button>
+                </div>
 
-                <label class="lm-settings-field" for="lm_lore_prompt">
-                    <span>Lore generation prompt</span>
-                    <textarea id="lm_lore_prompt" rows="9"></textarea>
+                <div class="lm-prompt-icon-field">
+                    <label for="lm_prompt_icon">
+                        <span>Icon</span>
+                        <input id="lm_prompt_icon" type="text" placeholder="Emoji or FontAwesome class" />
+                    </label>
+                    <div class="lm-icon-presets" id="lm_icon_presets"></div>
+                </div>
+
+                <label class="lm-settings-field" for="lm_prompt_text">
+                    <span>Prompt text</span>
+                    <textarea id="lm_prompt_text" rows="12"></textarea>
                 </label>
             </section>
 
